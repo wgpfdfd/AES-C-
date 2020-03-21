@@ -42,7 +42,7 @@ static const unsigned int inverse_graph[16][16] =
 	0x1f, 0xdd, 0xa8, 0x33, 0x88, 0x07, 0xc7, 0x31, 0xb1, 0x12, 0x10, 0x59, 0x27, 0x80, 0xec, 0x5f,
 	0x60, 0x51, 0x7f, 0xa9, 0x19, 0xb5, 0x4a, 0x0d, 0x2d, 0xe5, 0x7a, 0x9f, 0x93, 0xc9, 0x9c, 0xef,
 	0xa0, 0xe0, 0x3b, 0x4d, 0xae, 0x2a, 0xf5, 0xb0, 0xc8, 0xeb, 0xbb, 0x3c, 0x83, 0x53, 0x99, 0x61,
-	0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d };  //逆 S box
+	0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d };  //inv S box
 
 static const unsigned int rcon[10][8] = {
 	0,1,0,0,0,0,0,0,
@@ -57,7 +57,7 @@ static const unsigned int rcon[10][8] = {
 	3,6,0,0,0,0,0,0 };  //rcon box
 
 
-	// 域运算辅助函数
+	// support function
 unsigned int addDel(unsigned int a, unsigned int b)
 {
 	unsigned int res = 0x00;
@@ -147,14 +147,14 @@ static void ArrayToMatrix(unsigned int* array, unsigned int result[4][4])   //1*
 	}
 }
 
-static void SubBytes(unsigned int *signal_input,int size)    //字节代换
+static void SubBytes(unsigned int *signal_input,int size)    //subbytes
 {
 	unsigned int temp[32] = { 0 };
 	for (int i = 0; i < size / 2; i++)
 	{
 		temp[i] = graph[*(signal_input)][*(signal_input + 1)];//  search in graph
-		*signal_input = temp[i] / 16;    //取十位
-		*(signal_input + 1) = temp[i] % 16;  //取个位
+		*signal_input = temp[i] / 16;    
+		*(signal_input + 1) = temp[i] % 16;  //seprate first and second number
 		if (i != size / 2 - 1)
 		{
 			signal_input += 2;
@@ -219,16 +219,16 @@ void MixColumns(unsigned int* input_signal)   //mix columns
 	}
 	input_signal -= 31;
 	TwoOneSymbol(long_array, short_array);        // 1*32--->2*16
-	for (j = 0; j < 4; j++)      //按列处理
+	for (j = 0; j < 4; j++)      //operate by columns
 	{
 
 		for (i = 0; i < 4; i++) {
 
-			tmp[i] = short_array[j * 4 + i];      //每一列中的每一个字节拷贝到tmp中
+			tmp[i] = short_array[j * 4 + i];      //put each byte in each column to temp
 		}
 		for (i = 0; i < 4; i++) {
 
-			short_array[j * 4 + i] = multiply(0x02, tmp[i])      //矩阵计算，加法为异或
+			short_array[j * 4 + i] = multiply(0x02, tmp[i])      //operation in matrix (+means and or)
 				^ multiply(0x03, tmp[(i + 1) % 4])
 				^ multiply(0x01, tmp[(i + 2) % 4])
 				^ multiply(0x01, tmp[(i + 3) % 4]);
@@ -246,7 +246,7 @@ void MixColumns(unsigned int* input_signal)   //mix columns
 }
 
 
-static void str_left_shift(unsigned int* array)  //左移2位  used in key expand
+static void str_left_shift(unsigned int* array)  //shift left two bytes  used in key expand
 {
 	unsigned int temp[2] = { 0 };
 	temp[0] = *array;
@@ -261,7 +261,7 @@ static void str_left_shift(unsigned int* array)  //左移2位  used in key expan
 }
 
 
-void key_array_expand(unsigned int* initial_key_array, unsigned int* key_addition)     //密钥拓展
+void key_array_expand(unsigned int* initial_key_array, unsigned int* key_addition)     //key expention
 {
 	unsigned int temp_key_array[8] = { 0 };
 	unsigned int temp_key_addition[352] = { 0 };
@@ -280,7 +280,7 @@ void key_array_expand(unsigned int* initial_key_array, unsigned int* key_additio
 				temp_key_array[m] = temp_key_addition[8 * (j - 1) + m];   //temp_key_array = W[i-1]
 			}
 
-			str_left_shift(temp_key_array); //左移两位
+			str_left_shift(temp_key_array); //left shift
 			SubBytes(temp_key_array,8);  //replace in S box
 
 			for (int s = 0; s < 8; s++)
@@ -314,7 +314,7 @@ void key_array_expand(unsigned int* initial_key_array, unsigned int* key_additio
 }
 
 
-static void InvSubBytes(unsigned int* signal_input, int size)    //逆字节代换
+static void InvSubBytes(unsigned int* signal_input, int size)    
 {
 	unsigned int temp[32] = { 0 };
 	for (int i = 0; i < size / 2; i++)
@@ -330,7 +330,7 @@ static void InvSubBytes(unsigned int* signal_input, int size)    //逆字节代�
 
 }
 
-void InvShiftRows(unsigned int* signal_input)  //逆行位移
+void InvShiftRows(unsigned int* signal_input)  
 {
 	unsigned int temp_array[2];
 	signal_input += 2;   // start by S1
@@ -503,7 +503,7 @@ int main()
 
 	printf("\ninput_signal:\n");
 	printfinmatrix(long_signal);
-	key_array_expand(long_array, key_addition);  //密钥拓展
+	key_array_expand(long_array, key_addition);  //kep expand
 
 	unsigned int temp_key[32] = { 0 };
 	printf("\nkey after expand:\n");
